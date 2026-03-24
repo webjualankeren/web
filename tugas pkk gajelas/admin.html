@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin Bebek Hub</title>
+    <style>
+      body {
+        font-family: sans-serif;
+        background: #0a0a0a;
+        color: #fff;
+        margin: 0;
+        padding: 20px;
+      }
+      .nav {
+        background: #1a1a1a;
+        padding: 25px;
+        border-radius: 15px;
+        border: 1px solid #d4af37;
+        margin-bottom: 30px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 15px;
+      }
+      h1 {
+        text-align: center;
+        color: #d4af37;
+        letter-spacing: 2px;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #111;
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      th,
+      td {
+        padding: 15px;
+        text-align: left;
+        border-bottom: 1px solid #333;
+      }
+      th {
+        background: #d4af37;
+        color: #000;
+        font-weight: bold;
+      }
+
+      .btn {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: bold;
+        transition: 0.3s;
+      }
+      .btn-selesai {
+        background: #3498db;
+        color: white;
+      }
+      .btn-selesai:hover {
+        background: #2980b9;
+      }
+
+      /* Full Screen Starter */
+      #start-screen {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: #000;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+      }
+      #start-screen h2 {
+        color: #d4af37;
+        margin-bottom: 20px;
+      }
+
+      @media (max-width: 768px) {
+        table {
+          font-size: 0.8rem;
+        }
+        .nav {
+          padding: 15px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="start-screen">
+      <h2>SISTEM ADMIN SIAP</h2>
+      <button
+        class="btn"
+        style="background: #d4af37; font-size: 1.2rem; padding: 20px 40px"
+        onclick="mulaiSistem()"
+      >
+        MULAI & AKTIFKAN SUARA
+      </button>
+    </div>
+
+    <audio
+      id="notif-bel"
+      src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3"
+      preload="auto"
+    ></audio>
+
+    <h1>DASHBOARD PENJUAL 🦆</h1>
+
+    <div class="nav">
+      <button
+        class="btn"
+        style="background: #2ecc71; color: white"
+        onclick="statusToko('buka')"
+      >
+        BUKA TOKO
+      </button>
+      <button
+        class="btn"
+        style="background: #e74c3c; color: white"
+        onclick="statusToko('tutup')"
+      >
+        TUTUP TOKO
+      </button>
+      <div
+        id="status-db"
+        style="
+          width: 100%;
+          text-align: center;
+          color: #d4af37;
+          margin-top: 10px;
+          font-weight: bold;
+        "
+      >
+        Status: Menghubungkan...
+      </div>
+    </div>
+
+    <div style="overflow-x: auto">
+      <table>
+        <thead>
+          <tr>
+            <th>Waktu</th>
+            <th>Nama</th>
+            <th>Menu</th>
+            <th>Qty</th>
+            <th>Catatan</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="data-tabel"></tbody>
+      </table>
+    </div>
+
+    <script>
+      const API = "https://69c2ddb07518bf8facbfb548.mockapi.io/pesanan";
+      let jmlLama = 0;
+      let sistemAktif = false;
+
+      async function mulaiSistem() {
+        document.getElementById("start-screen").style.display = "none";
+        sistemAktif = true;
+        document.getElementById("notif-bel").play();
+        window.speechSynthesis.speak(
+          new SpeechSynthesisUtterance("Sistem Bebek Hub Aktif")
+        );
+        muatData();
+        setInterval(muatData, 3000);
+      }
+
+      async function statusToko(s) {
+        // Update saklar di ID 1
+        await fetch(API + "/1", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status_toko: s }),
+        });
+        alert("Toko sekarang: " + s.toUpperCase());
+      }
+
+      async function muatData() {
+        if (!sistemAktif) return;
+        try {
+          const res = await fetch(API);
+          const data = await res.json();
+
+          // Deteksi Pesanan Baru
+          if (data.length > jmlLama) {
+            if (jmlLama !== 0) {
+              document.getElementById("notif-bel").play();
+              window.speechSynthesis.cancel();
+              window.speechSynthesis.speak(
+                new SpeechSynthesisUtterance("Bos, ada pesanan masuk!")
+              );
+            }
+            jmlLama = data.length;
+          }
+
+          document.getElementById("status-db").innerText =
+            "Status: Online | Total Pesanan: " + data.length;
+
+          const tbody = document.getElementById("data-tabel");
+          tbody.innerHTML = "";
+
+          [...data].reverse().forEach((p) => {
+            if (p.id !== "1") {
+              // Skip ID 1 karena itu saklar toko
+              tbody.innerHTML += `
+                            <tr>
+                                <td>${p.waktu}</td>
+                                <td>${p.nama}</td>
+                                <td>${p.menu}</td>
+                                <td>${p.porsi}x</td>
+                                <td style="font-style:italic; color:#d4af37">${p.catatan}</td>
+                                <td><button class="btn btn-selesai" onclick="hapus('${p.id}')">Selesai</button></td>
+                            </tr>`;
+            }
+          });
+        } catch (e) {}
+      }
+
+      async function hapus(id) {
+        if (confirm("Pesanan selesai?")) {
+          await fetch(API + "/" + id, { method: "DELETE" });
+          muatData();
+        }
+      }
+    </script>
+  </body>
+</html>
